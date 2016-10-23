@@ -13,6 +13,7 @@
     "express": "^4.14.0",
     "express-graphql": "^0.5.4",
     "graphql": "^0.7.2",
+    "graphql-tools": "^0.7.2",
     "request": "^2.75.0"
   }
 }
