@@ -26,7 +26,7 @@ function scrapeSpeakers(){
       return {
         'title': $(el).find('.schedliveinfo h3').text(),
         'location': $(el).find('.schedliveinfo .loc').text(),
-        'time':$(el).find('.schedlivetime').text(),
+        'time':$(el).find('.schedlivetime').text().replace(/\n/g, "").trim(),
         'speakerURLs': $(el).find('.schedlivespeaker a').attr('href'),
       };
     });
