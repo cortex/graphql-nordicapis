@@ -1,49 +1,49 @@
-var request = require('request');
+var rp = require('request-promise');
 var cheerio = require('cheerio');
 
-var speakers;
 var talks;
 
-function scrapeSpeakers(){
+function scrapeTalks(){
   const url = 'http://nordicapis.com/events/2016-platform-summit/';
-  console.time('scrapeSpeakers');
-  request.get(url, function(error, response, html){
-    if (error){
-      console.log(error);
-      return;
-    }
+  rp(url).then( (html)=>{
     var $ = cheerio.load(html);
-    speakers = $('.speakerlink').parent().map(function(i, el){
-      return {
-        'name':    $(el).find('h4').text().trim(),
-        'role':    $(el).find('h5').text().trim(),
-        'company': $(el).find('h5 + p').text().trim(),
-        'handle':  $(el).find('p > a').text().trim(),
-        'url':    $(el).find('.speakerlink').attr('href').replace("http://nordicapis.com", ""),
-      };
-    });
     talks = $('.schedliveinfo').parent().map((i,el)=>{
       return {
-        'title': $(el).find('.schedliveinfo h3').text(),
-        'location': $(el).find('.schedliveinfo .loc').text(),
-        'time':$(el).find('.schedlivetime').text().replace(/\n/g, "").trim(),
+        'title':       $(el).find('.schedliveinfo h3').text(),
+        'location':    $(el).find('.schedliveinfo .loc').text(),
+        'time':        $(el).find('.schedlivetime').text().replace(/\n/g, "").trim(),
         'speakerURLs': $(el).find('.schedlivespeaker a').attr('href'),
       };
     });
-    console.log('Loaded ' + speakers.length + ' speakers');
     console.log('Loaded ' + talks.length + ' talks');
-    console.timeEnd('scrapeSpeakers');
-  });
+  })
+  .catch((err) => {console.log(err)});
 }
-scrapeSpeakers();
+
+function scrapeSpeaker(url){
+  const talkerURL = 'http://nordicapis.com/' + url;
+  return rp(talkerURL).then((html) => {
+    console.log("fetched speaker"+ url)
+    var $ = cheerio.load(html);
+    return {
+      'name':        $('.basicinfo h1').text().trim(),
+      'role':        $('.basicinfo h4').text().trim(),
+      'company':     $('.basicinfo h5').text().trim(),
+      'handle':      $('.fa-twitter-outline + a').text().trim(),
+      'description': $('.speakerdesc').text().replace(/\n/g, "").trim(),
+    };
+  })
+  .catch((err) => {console.log(err) });
+}
+
+scrapeTalks();
 
 var { graphql, buildSchema } = require('graphql');
 
 var typeDefs = `
   type Query{
     me: Speaker
-    allSpeakers: [Speaker]
-    speakersByName(name: String): [ Speaker ]
+    speaker(id: String): Speaker
     talks: [Talk]
   }
 
@@ -52,6 +52,7 @@ var typeDefs = `
     role: String
     company: String
     handle: String
+    description: String
     url: String
   }
 
@@ -63,26 +64,15 @@ var typeDefs = `
   }
 `;
 
-var {filter, includes}= require('lodash');
-
 const resolvers = {
   Query:{
-    me: ()=>{
-      return speakers[3];
-    },
-    allSpeakers: ()=> {return speakers},
-    speakersByName: (args)=>{
-
-    },
-    talks: () => {
-      return talks;
-    },
+    me: ()=>(scrapeSpeaker('speakers/joakim-lundborg')),
+    speaker: (id)=>(scrapeSpeaker(id)),
+    talks: () => { return talks },
   },
   Talk:{
     speakers: (talk)=>{
-      return speakers.filter((i,speaker)=>{
-        return includes(talk.speakerURLs, speaker.url )
-      })
+      return [scrapeSpeaker(talk.speakerURLs)]
     }
   }
 }
